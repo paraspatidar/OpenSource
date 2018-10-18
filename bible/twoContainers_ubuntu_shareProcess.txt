@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: two-containers-my-process
+spec:
+  shareProcessNamespace: true
+  containers:
+  - name: nginx-container
+    image: nginx
+  - name: ubuntu-container
+    image: ubuntu
+    securityContext:
+      capabilities:
+        add:
+        - SYS_PTRACE
+    stdin: true
+    tty: true

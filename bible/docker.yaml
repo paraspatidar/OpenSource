@@ -1,0 +1,10 @@
+apiVersion: v1 
+kind: Pod
+metadata:
+  name: netcore-pod-debug
+spec:
+      containers:
+      - name: netcoredockerwebapp-debug
+        image: paraspatidardocker/netcoredockerwebapp
+        ports:
+        - containerPort: 80

@@ -1,0 +1,97 @@
+#########################
+refreces :
+https://www.youtube.com/watch?v=DvaT3H8Wyf8
+#https://www.youtube.com/watch?v=U3Fziu63aUM
+https://github.com/Azure/draft
+https://www.shogan.co.uk/kubernetes/streamlining-your-kubernetes-development-process-with-draft-and-helm/
+
+
+#KUBECONFIG C:\Users\ppatidar\.bluemix\plugins\container-service\clusters\Cluster_POC\kube-config-dal13-Cluster_POC.yml
+
+
+
+#install draft and helm using choco
+choco install draft
+choco install kubernetes-helmcon
+
+#initilize draft
+draft init
+
+#configre registoty/container registory for draft if not already
+draft config set registry docker.io/paraspatidardocker
+
+# in VS code open .net core app and go ot terminal to initilize docker file & helm chart using draft , please mention language pack as C# as draft #fails to detect the language
+
+draft create --pack=csharp
+
+#consider changing publish mode to debug insteed of release in dockerfile
+
+#build docker image and see the logs using --debug tag
+draft up --debug
+
+#%%%%%%%%%%%% you should see something like this 
+
+Draft Up Started: 'netcoredebug': 01CQKB13SQDD6YHCN7QJWSCCTZ
+netcoredebug: Building Docker Image: SUCCESS ⚓  (213.1925s)
+netcoredebug: Pushing Docker Image: SUCCESS ⚓  (27.8301s)
+netcoredebug: Releasing Application: SUCCESS ⚓  (2.6872s)
+Inspect the logs with `draft logs 01CQKB13SQDD6YHCN7QJWSCCTZ`
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+#check that image has been deployed as pod
+kubectl get pods
+
+#try to find the PiD of dotnot core process , replace $pod with pod name which we received with "kubectl get pods"
+
+kubectl exec $pod -i -- pidof -s dotnet
+
+# also check helm details , these details will keep updating like version number as we make changes to app and keep doing "draft up"
+helm ls
+
+
+#ro run the application 
+draft connect
+
+#%%%%%%%%%%%% you should see something like this 
+Connect to netcoredebug:80 on localhost:61224
+[netcoredebug]:       No XML encryptor configured. Key {31bfe17a-f769-4d25-ae69-05589e785ccf} may be persisted to storage in unencrypted form.
+[netcoredebug]: Hosting environment: Production
+[netcoredebug]: Content root path: /app
+[netcoredebug]: Now listening on: http://[::]:80
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+#browse port seen in logs , in this case localhost:61224
+
+#use following launch.json configuration to debug the application
+# lets say "kubectl get pods" gives container name as "netcoredebug-netcoredebug-6b5977dff7-wdqfd"
+# and "kubectl exec $pod -i -- pidof -s dotnet" gives process id as 6 , then 
+# add following in launch.json configuration array 
+
+{
+            "name": ".NET Core Remote Attach1",
+            "type": "coreclr",
+            "request": "attach",
+            "processId": "6",
+            "pipeTransport": {
+                "pipeProgram": "kubectl",
+                "pipeArgs": [  "exec", "-i", "netcoredebug-netcoredebug-6b5977dff7-wdqfd"],
+                "debuggerPath": "-- /vsdbg/vsdbg",
+                "pipeCwd": "${workspaceRoot}/netcoredebug",
+                "quoteArgs": false
+            },
+            "sourceFileMap": {
+                "/app": "${workspaceFolder}/netcoredebug"
+            }
+}
+
+
+with above config , this one runs following in debug console to enable debug
+"kubectl" exec -i netcoredebug-netcoredebug-6b5977dff7-wdqfd -- /vsdbg/vsdbg --interpreter=vscode
+
+
+
+
+
+

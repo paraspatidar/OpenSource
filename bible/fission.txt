@@ -1,0 +1,179 @@
+#init helm
+helm init
+
+#install fission
+helm install --namespace fission --set serviceType=NodePort,routerServiceType=NodePort    https://github.com/fission/fission/releases/download/0.10.0/fission-all-0.10.0.tgz --debug
+
+
+#see if fission pods running 
+kubectl get pods --all-namespaces
+
+
+#to uninstall
+helm list
+helm delete --name <name of deployment>
+
+#donwload fission CLI i.e fission.exe if not already avilable form https://github.com/fission/fission/releases/download/0.11.0/fission-cli-windows.exe or may be some other location based on version , dont forget to rename exe to fission.exe and add its location in path variable.
+# now to test if its recognised , try 
+fission --help
+
+
+#### Then to test if all works fine , create sample function ###
+  # Create an environment
+  $ fission env create --name nodejs --image fission/node-env
+
+  # Get a hello world
+  $ curl https://raw.githubusercontent.com/fission/fission/master/examples/nodejs/hello.js > hello.js
+
+  # Register this function with Fission
+  $ fission function create --name hello --env nodejs --code hello.js
+
+  # Run this function
+  $ fission function test --name hello
+  Hello, world!
+################################################
+
+#install workflows
+helm install --namespace fission-workflows https://github.com/fission/fission-workflows/releases/download/0.5.0/fission-workflows-0.5.0.tgz
+
+
+###################################################
+# to varify , try running sample workflow 
+
+# Setup a couple of Fission functions
+curl https://raw.githubusercontent.com/fission/fission-workflows/master/examples/whales/fortune.sh > fortune.sh
+curl https://raw.githubusercontent.com/fission/fission-workflows/master/examples/whales/whalesay.sh > whalesay.sh
+
+fission env create --name binary --image fission/binary-env
+fission fn create --name whalesay --env binary --deploy ./whalesay.sh
+fission fn create --name fortune --env binary --deploy ./fortune.sh
+
+# Setup a workflow using the workflow environment
+curl https://raw.githubusercontent.com/fission/fission-workflows/master/examples/whales/fortunewhale.wf.yaml > fortunewhale.wf.yaml
+
+fission fn create --name fortunewhale --env workflow --src ./fortunewhale.wf.yaml
+
+# Invoke the workflow just like any other Fission function
+
+curl $FISSION_ROUTER/fission-function/fortunewhale
+
+
+# if get error in finding FISSION_ROUTER variable , use this link : https://github.com/fission/fission/issues/631
+# run following 
+kubectl -n fission get svc
+#or
+kubectl -n fission get svc router -o jsonpath='{...nodePort}'
+#lets say above gives 31314 , then 
+
+#set the variable 
+SET FISSION_ROUTER=http://localhost:31314
+
+
+#note : by this time you shold have 3 environments :
+
+run : fission env list
+
+NAME     UID                                  IMAGE                      POOLSIZE MINCPU MAXCPU MINMEMORY MAXMEMORY EXTNET GRACETIME
+binary   2f352f01-c317-11e8-945f-00155d245917 fission/binary-env         3        0      0      0         0         false  360
+nodejs   80be0804-c315-11e8-945f-00155d245917 fission/node-env           3        0      0      0         0         false  360
+workflow 1391b72a-c31a-11e8-945f-00155d245917 fission/workflow-env:0.5.0 0        0      0      0         0         false  0
+
+
+###########################################################
+#list function
+fission function list
+
+#delete function 
+fission function delete --name fortune
+
+#list environment
+fission env list
+
+#delete environment
+fission env delete --name <name of env>
+
+
+#######################################
+# test the NATS streaming functionality
+# varify the NATS services are running by looking at pods via : kubectl get pods --all-namespaces
+# in fission workspace there should be one NATS pod 
+# enable port forwarding :
+kubectl port-forward  <NATS-POD-NAME> -n fission 4222:4222
+like : 
+kubectl port-forward  nats-streaming-7686cd7ff4-vhgf9 -n fission 4222:4222
+
+#now run .net NATS client app  for pub sub, listenig to test subject which is test topic
+
+##################################################
+
+#test with fission function 
+
+# create dotnet 2.0 environemt 
+#refer https://docs.fission.io/0.10.0/  & https://github.com/fission/fission/tree/master/environments/dotnet
+
+fission env create --name dotnet --image  fission/dotnet20-env
+
+# create sample hello world function named echo in .net 
+fission function create --name echo --env dotnet --code func.cs
+
+##function body in func.cs is as follows##############
+
+using System;
+using Fission.DotNetCore.Api;
+
+public class FissionFunction 
+{
+    public string Execute(FissionContext context){
+        //context.Logger.WriteInfo("executing.. {0}", context.Arguments["text"]);
+        //return (string)context.Arguments["text"];
+		return "hello Boy!!!";
+    }
+}
+
+#########################################
+
+# test the function
+fission fn test --name echo
+
+
+#create NATS message queue trigger with topic as per reference here & bind our function : https://docs.fission.io/0.10.0/usage/trigger/
+#here trigger name is echomsg  , input topic is mqtrigger, output topic is mqresponse & OnerrorTopic is mqerror
+
+fission mqt create --name echomsg --function echo --mqtype nats-streaming --topic mqtrigger --resptopic mqresponse --errortopic mqerror
+
+#list message queue trigger 
+fission mqt list
+
+## Now in .NEt NATS client , change the subject , for publisher the subject will be mqtrigger  , for subscriber , subject will be mqresponse
+## for errror handler subscriber , subject will be mqerror
+
+
++++++++++++++++++++++++++++++++++++++++
+
+Get CRD for fission objects :
+NameSpaces :
+ environments.fission.io
+ functions.fission.io
+ httptriggers.fission.io
+ kuberneteswatchtriggers.fission.io
+ messagequeuetriggers.fission.io
+ packages.fission.io
+ timetriggers.fission.io
+ 
+#run following type of commands to get CRD 
+
+kubectl get environments.fission.io <ExistingEnvName> -o yaml
+kubectl get function.fission.io <ExistingFunctionName> -o yaml
+
+
+
+
+
+
+
+
+
+
+
+
+
